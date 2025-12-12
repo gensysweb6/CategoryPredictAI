@@ -15,7 +15,7 @@ public class Program {
     // --- Configuration ---
     // Adjust paths as needed
     private static readonly string BaseDataPath = Path.Combine(Environment.CurrentDirectory, "Data");
-    private static readonly string TrainDataPath = Path.Combine(BaseDataPath, "data.csv"); // Your training data file
+    private static readonly string TrainDataPath = Path.Combine(BaseDataPath, "data-kerala.csv"); // Your training data file
     private static readonly string CategoryModelPath = Path.Combine(Environment.CurrentDirectory, "category_model.zip");
     private static readonly string DepartmentModelPath = Path.Combine(Environment.CurrentDirectory, "department_model.zip");
     
@@ -25,15 +25,7 @@ public class Program {
         // Create a logger factory that sends logs to the console
         using var loggerFactory = LoggerFactory.Create(builder => {
             builder
-                .AddFilter("Microsoft.ML", LogLevel.Information) // Show Information level logs from ML.NET components
-                                                                // You can adjust the LogLevel:
-                                                                 // LogLevel.Trace -> Very detailed (might include per-instance details)
-                                                                 // LogLevel.Debug -> Detailed debug info
-                                                                 // LogLevel.Information -> Standard progress (like trainer iterations) - GOOD STARTING POINT
-                                                                 // LogLevel.Warning -> Only warnings and errors
-                                                                 // LogLevel.Error -> Only errors
-                                                                 // LogLevel.Critical -> Only critical failures
-                                                                 // LogLevel.None -> Nothing
+                .AddFilter("Microsoft.ML", LogLevel.Information)
                 .AddConsole(); // Add the console logger provider
         });
 
