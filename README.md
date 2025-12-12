@@ -1,5 +1,16 @@
 ﻿# CategoryPrecdictAI
 
+
+# Query
+
+select REPLACE(itmc.name,',',' ')+','+REPLACE(REPLACE(cat.name,',',' '),'"',' ')+','+REPLACE(REPLACE(dep.name,',',' '),'"',' ')
+from vibs_itemcode itmc --102529
+LEFT JOIN fis_categorycode cat ON cat.categorycode = itmc.categorycode
+LEFT JOIN vibs_groupcode dep ON dep.groupcode = itmc.groupcode
+WHERE itmc.groupcode NOT IN ('1691')
+
+
+
 •	Created Directory.Build.props with shared properties (targeting net10.0, Nullable, ImplicitUsings, InvariantGlobalization, preview C# via LangVersion).
 
 •	Removed the explicit TargetFramework from CategoryPrecdictAI.csproj so the central props applies.
