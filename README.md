@@ -3,11 +3,20 @@
 
 # Query
 
-select REPLACE(itmc.name,',',' ')+','+REPLACE(REPLACE(cat.name,',',' '),'"',' ')+','+REPLACE(REPLACE(dep.name,',',' '),'"',' ')
+select REPLACE(LTRIM(RTRIM(itmc.name)),',',' ')
++','+REPLACE(REPLACE(LTRIM(RTRIM(dep.name)),',',' '),'"',' ')
++','+REPLACE(REPLACE(LTRIM(RTRIM(cat.name)),',',' '),'"',' ')
++','+REPLACE(REPLACE(LTRIM(RTRIM(scat.name)),',',' '),'"',' ')
 from vibs_itemcode itmc --102529
-LEFT JOIN fis_categorycode cat ON cat.categorycode = itmc.categorycode
 LEFT JOIN vibs_groupcode dep ON dep.groupcode = itmc.groupcode
-WHERE itmc.groupcode NOT IN ('1691')
+LEFT JOIN fis_categorycode cat ON cat.categorycode = itmc.categorycode
+LEFT JOIN gs_subcategorycode scat ON scat.subcategorycode =itmc.subcategorycode
+WHERE  itmc.name is not null and itmc.name <>''
+ and itmc.groupcode is not null 
+ and itmc.categorycode is not null 
+ and itmc.subcategorycode is not null
+ order by itmc.itemcode
+--ProductName,Department,Category,SubCategory
 
 
 

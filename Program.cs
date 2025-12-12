@@ -12,9 +12,10 @@ public class Program
     private static readonly string BaseDataPath = Path.Combine(Environment.CurrentDirectory, "Data");
     private static readonly string TrainDataPath = Path.Combine(BaseDataPath, "data-kerala.csv"); // Your training data file
     private static readonly string CategoryModelPath = Path.Combine(Environment.CurrentDirectory, "category_model.zip");
+    private static readonly string SubCategoryModelPath = Path.Combine(Environment.CurrentDirectory, "sub_category_model.zip");
     private static readonly string DepartmentModelPath = Path.Combine(Environment.CurrentDirectory, "department_model.zip");
 
-    private static readonly bool isTraining = false; // Set to false if you want to skip training and just load the model
+    private static readonly bool isTraining = true; // Set to false if you want to skip training and just load the model
     public static void Main(string[] args)
     {
         // --- Configure Logging ---
@@ -49,6 +50,23 @@ public class Program
             IDataView trainingData = trainTestData.TrainSet;
             IDataView testingData = trainTestData.TestSet; // Use this for evaluation
 
+            // --- Build & Train Department Model ---
+            Console.WriteLine("\nBuilding and Training Department Model...");
+            var departmentStopwatch = Stopwatch.StartNew(); // Start timer
+            var departmentModel = TrainDepartmentModel(mlContext, trainingData);
+            departmentStopwatch.Stop(); // Stop timer
+            Console.WriteLine($"Department Model training finished in: {departmentStopwatch.ElapsedMilliseconds} ms");
+
+            // --- Evaluate Department Model ---
+            Console.WriteLine("\nEvaluating Department Model...");
+            EvaluateModel(mlContext, departmentModel, testingData, "Department");
+
+            // --- Save Department Model ---
+            Console.WriteLine("\nSaving Department Model...");
+            mlContext.Model.Save(departmentModel, trainingData.Schema, DepartmentModelPath);
+            Console.WriteLine($"Department Model saved to: {DepartmentModelPath}");
+
+
             // --- Build & Train Category Model ---
             Console.WriteLine("\nBuilding and Training Category Model...");
             var categoryStopwatch = Stopwatch.StartNew(); // Start timer
@@ -65,21 +83,22 @@ public class Program
             mlContext.Model.Save(categoryModel, trainingData.Schema, CategoryModelPath);
             Console.WriteLine($"Category Model saved to: {CategoryModelPath}");
 
-            // --- Build & Train Department Model ---
-            Console.WriteLine("\nBuilding and Training Department Model...");
-            var departmentStopwatch = Stopwatch.StartNew(); // Start timer
-            var departmentModel = TrainDepartmentModel(mlContext, trainingData);
-            departmentStopwatch.Stop(); // Stop timer
-            Console.WriteLine($"Department Model training finished in: {departmentStopwatch.ElapsedMilliseconds} ms");
 
-            // --- Evaluate Department Model ---
-            Console.WriteLine("\nEvaluating Department Model...");
-            EvaluateModel(mlContext, departmentModel, testingData, "Department");
+            // --- Build & Train SubCategory Model ---
+            Console.WriteLine("\nBuilding and Training SubCategory Model...");
+            var subcategoryStopwatch = Stopwatch.StartNew(); // Start timer
+            var subcategoryModel = TrainSubCategoryModel(mlContext, trainingData);
+            subcategoryStopwatch.Stop(); // Stop timer
+            Console.WriteLine($"Category Model training finished in: {subcategoryStopwatch.ElapsedMilliseconds} ms");
 
-            // --- Save Department Model ---
-            Console.WriteLine("\nSaving Department Model...");
-            mlContext.Model.Save(departmentModel, trainingData.Schema, DepartmentModelPath);
-            Console.WriteLine($"Department Model saved to: {DepartmentModelPath}");
+            // --- Evaluate Category Model ---
+            Console.WriteLine("\nEvaluating Category Model...");
+            EvaluateModel(mlContext, subcategoryModel, testingData, "SubCategory");
+
+            // --- Save Category Model ---
+            Console.WriteLine("\nSaving Category Model...");
+            mlContext.Model.Save(subcategoryModel, trainingData.Schema, SubCategoryModelPath);
+            Console.WriteLine($"Category Model saved to: {SubCategoryModelPath}");
         }
 
 
@@ -99,26 +118,10 @@ public class Program
 
             List<CategoryProbability> topCategoryPredictions = PredictCategory(mlContext, key, CategoryModelPath);
             List<DepartmentProbability> topDepartmentPredictions = PredictDepartment(mlContext, key, DepartmentModelPath);
+            List<SubCategoryProbability> topSubCategoryPredictions = PredictSubCategory(mlContext, key, SubCategoryModelPath);
 
-            PrintPredictions(key, topCategoryPredictions, topDepartmentPredictions);
+            PrintPredictions(key, topCategoryPredictions, topDepartmentPredictions,topSubCategoryPredictions);
         }
-    }
-
-
-    // --- Training Method for Category ---
-    private static ITransformer TrainCategoryModel(MLContext mlContext, IDataView trainingData)
-    {
-        Console.WriteLine("Defining Category pipeline..."); // Manual message
-        // Define the training pipeline
-        var pipeline = mlContext.Transforms.Conversion.MapValueToKey(inputColumnName: nameof(ItemData.Category), outputColumnName: "Label") // Keep Label as the key column name
-            .Append(mlContext.Transforms.Text.FeaturizeText(inputColumnName: nameof(ItemData.ItemName), outputColumnName: "Features"))
-            .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features")) // Trainer outputs 'PredictedLabel' (key) by default                                                                                                        
-            .Append(mlContext.Transforms.Conversion.MapKeyToValue(outputColumnName: "PredictedCategoryValue", inputColumnName: "PredictedLabel"));
-
-        Console.WriteLine("Starting Category model training (watch for ML.NET logs)..."); // Manual message
-        var model = pipeline.Fit(trainingData);
-        Console.WriteLine("Category model training complete."); // Manual message
-        return model;
     }
 
     // --- Training Method for Department ---
@@ -136,6 +139,40 @@ public class Program
         Console.WriteLine("Department model training complete."); // Manual message
         return model;
     }
+
+    // --- Training Method for Category ---
+    private static ITransformer TrainCategoryModel(MLContext mlContext, IDataView trainingData)
+    {
+        Console.WriteLine("Defining Category pipeline..."); // Manual message
+        // Define the training pipeline
+        var pipeline = mlContext.Transforms.Conversion.MapValueToKey(inputColumnName: nameof(ItemData.Category), outputColumnName: "Label") // Keep Label as the key column name
+            .Append(mlContext.Transforms.Text.FeaturizeText(inputColumnName: nameof(ItemData.ItemName), outputColumnName: "Features"))
+            .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features")) // Trainer outputs 'PredictedLabel' (key) by default                                                                                                        
+            .Append(mlContext.Transforms.Conversion.MapKeyToValue(outputColumnName: "PredictedCategoryValue", inputColumnName: "PredictedLabel"));
+
+        Console.WriteLine("Starting Category model training (watch for ML.NET logs)..."); // Manual message
+        var model = pipeline.Fit(trainingData);
+        Console.WriteLine("Category model training complete."); // Manual message
+        return model;
+    }
+
+
+    // --- Training Method for Sub Category ---
+    private static ITransformer TrainSubCategoryModel(MLContext mlContext, IDataView trainingData)
+    {
+        Console.WriteLine("Defining SubCategory pipeline..."); // Manual message
+        // Define the training pipeline
+        var pipeline = mlContext.Transforms.Conversion.MapValueToKey(inputColumnName: nameof(ItemData.SubCategory), outputColumnName: "Label") // Keep Label as the key column name
+            .Append(mlContext.Transforms.Text.FeaturizeText(inputColumnName: nameof(ItemData.ItemName), outputColumnName: "Features"))
+            .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features")) // Trainer outputs 'PredictedLabel' (key) by default                                                                                                        
+            .Append(mlContext.Transforms.Conversion.MapKeyToValue(outputColumnName: "PredictedSubCategoryValue", inputColumnName: "PredictedLabel"));
+
+        Console.WriteLine("Starting SubCategory model training (watch for ML.NET logs)..."); // Manual message
+        var model = pipeline.Fit(trainingData);
+        Console.WriteLine("SubCategory model training complete."); // Manual message
+        return model;
+    }
+
 
     // --- Evaluation Method (Generic) ---
     private static void EvaluateModel(MLContext mlContext, ITransformer model, IDataView testData, string labelColumnName)
@@ -190,6 +227,43 @@ public class Program
         }
         return predictionWithScores.OrderByDescending(p => p.Probability).Take(3).ToList();
     }
+
+
+    private static List<SubCategoryProbability> PredictSubCategory(MLContext mlContext, string itemName, string subcategoryModelPath)
+    {
+        ITransformer loadedSubCategoryModel = mlContext.Model.Load(subcategoryModelPath, out var categoryModelSchema);
+        var predictionEngine = mlContext.Model.CreatePredictionEngine<ItemData, SubCategoryPrediction>(loadedSubCategoryModel);
+        var inputData = new ItemData { ItemName = itemName };
+
+        var prediction = predictionEngine.Predict(inputData);
+        var predictionWithScores = new List<SubCategoryProbability>();
+
+        if (predictionEngine is object && loadedSubCategoryModel is object)
+        {
+            var inputDataList = new List<ItemData> { inputData };
+            IDataView inputDataView = mlContext.Data.LoadFromEnumerable(inputDataList);
+            IDataView transformedDataView = loadedSubCategoryModel.Transform(inputDataView);
+
+            VBuffer<ReadOnlyMemory<char>> slots = default;
+            transformedDataView.Schema["Score"].GetSlotNames(ref slots);
+            var slotNames = slots.DenseValues().ToArray();
+
+            var column = transformedDataView.GetColumn<float[]>(transformedDataView.Schema["Score"]).ToArray();
+            foreach (var item in column)
+            {
+                for (int i = 0; i < item.Length; i++)
+                {
+                    predictionWithScores.Add(new SubCategoryProbability
+                    {
+                        SubCategory = slotNames[i].ToString(),
+                        Probability = item[i]
+                    });
+                }
+            }
+        }
+        return predictionWithScores.OrderByDescending(p => p.Probability).Take(3).ToList();
+    }
+
     private static List<DepartmentProbability> PredictDepartment(MLContext mlContext, string itemName, string departmentModelPath)
     {
         ITransformer loadedDepartmentModel = mlContext.Model.Load(departmentModelPath, out var departmentModelSchema);
@@ -227,15 +301,11 @@ public class Program
 
 
     // --- Printing Prediction Results ---
-    private static void PrintPredictions(string itemName, List<CategoryProbability> categoryPredictions, List<DepartmentProbability> departmentPredictions)
+    private static void PrintPredictions(string itemName, List<CategoryProbability> categoryPredictions,
+        List<DepartmentProbability> departmentPredictions ,List<SubCategoryProbability> subCategoryPredictions)
     {
         Console.WriteLine($"--- Top Predictions for: '{itemName}' ---");
 
-        Console.WriteLine("\nTop Category Predictions:");
-        foreach (var prediction in categoryPredictions)
-        {
-            Console.WriteLine($"   - Category: {prediction.Category}, Probability: {prediction.Probability:P2}");
-        }
 
         Console.WriteLine("\nTop Department Predictions:");
         foreach (var prediction in departmentPredictions)
@@ -243,6 +313,17 @@ public class Program
             Console.WriteLine($"   - Department: {prediction.Department}, Probability: {prediction.Probability:P2}");
         }
 
+        Console.WriteLine("\nTop Category Predictions:");
+        foreach (var prediction in categoryPredictions)
+        {
+            Console.WriteLine($"   - Category: {prediction.Category}, Probability: {prediction.Probability:P2}");
+        }
+
+        Console.WriteLine("\nTop SubCategory Predictions:");
+        foreach (var prediction in subCategoryPredictions)
+        {
+            Console.WriteLine($"   - SubCategory: {prediction.SubCategory}, Probability: {prediction.Probability:P2}");
+        }
         Console.WriteLine("--------------------------------------");
     }
 
